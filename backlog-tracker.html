@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Semester-wise Backlog Tracker</title>
+  <style>
+    body {
+      font-family: Arial;
+      background: #f5f7fa;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      border-radius: 10px;
+      position: relative;
+    }
+    .form-group {
+      margin-bottom: 10px;
+    }
+    select, input[type="text"], input[type="number"] {
+      margin-right: 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+    }
+    .backlog { color: red; }
+    .cleared { color: green; }
+    #totalBacklogBox {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background-color: #ffefef;
+      color: #b20000;
+      padding: 10px 15px;
+      border: 1px solid #b20000;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+    .status-icon {
+      cursor: pointer;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div id="totalBacklogBox">Backlog Lectures: 0</div>
+  <h2>📚 Semester-wise Backlog Tracker</h2>
+
+  <div class="form-group">
+    <select id="semester">
+      <option value="Semester 1">Semester 1</option>
+      <option value="Semester 2">Semester 2</option>
+      <option value="Semester 3">Semester 3</option>
+      <option value="Semester 4">Semester 4</option>
+      <option value="Semester 5">Semester 5</option>
+      <option value="Semester 6">Semester 6</option>
+      <option value="Semester 7">Semester 7</option>
+      <option value="Semester 8">Mathematics Optional</option>
+    </select>
+    <input type="text" id="subject" placeholder="Subject Name">
+    <input type="number" id="total" placeholder="Total Lectures">
+    <input type="number" id="attended" placeholder="Attended Lectures">
+    <button onclick="addOrUpdate()">Save</button>
+  </div>
+
+  <div id="tablesContainer"></div>
+</div>
+
+<script>
+  let data = JSON.parse(localStorage.getItem("backlogData")) || {};
+
+  function saveData() {
+    localStorage.setItem("backlogData", JSON.stringify(data));
+    renderTables();
+  }
+
+  function addOrUpdate() {
+    const semester = document.getElementById("semester").value;
+    const subject = document.getElementById("subject").value.trim();
+    const total = parseInt(document.getElementById("total").value);
+    const attended = parseInt(document.getElementById("attended").value);
+
+    if (!subject || isNaN(total) || isNaN(attended)) {
+      alert("Please fill all fields properly.");
+      return;
+    }
+
+    if (!data[semester]) data[semester] = {};
+    // Default status = ongoing if new
+    data[semester][subject] = { 
+      total, 
+      attended, 
+      status: data[semester][subject]?.status || "ongoing" 
+    };
+    saveData();
+
+    document.getElementById("subject").value = "";
+    document.getElementById("total").value = "";
+    document.getElementById("attended").value = "";
+  }
+
+  function updateSubject(semester, subject) {
+    const total = parseInt(prompt("Enter new total lectures:", data[semester][subject].total));
+    const attended = parseInt(prompt("Enter new attended lectures:", data[semester][subject].attended));
+    if (!isNaN(total) && !isNaN(attended)) {
+      data[semester][subject].total = total;
+      data[semester][subject].attended = attended;
+      saveData();
+    }
+  }
+
+  function deleteSubject(semester, subject) {
+    if (confirm(`Delete subject: ${subject}?`)) {
+      delete data[semester][subject];
+      if (Object.keys(data[semester]).length === 0) delete data[semester];
+      saveData();
+    }
+  }
+
+  function toggleStatus(semester, subject) {
+    const currentStatus = data[semester][subject].status;
+    data[semester][subject].status = currentStatus === "ongoing" ? "completed" : "ongoing";
+    saveData();
+  }
+
+  function renderTables() {
+    const container = document.getElementById("tablesContainer");
+    container.innerHTML = "";
+
+    let totalBacklogLectures = 0;
+
+    for (const [semester, subjects] of Object.entries(data)) {
+      let tableHTML = `
+        <h3>${semester}</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Subject</th>
+              <th>Total</th>
+              <th>Attended</th>
+              <th>Attendance %</th>
+              <th>Backlog Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      for (const [subject, info] of Object.entries(subjects)) {
+        const percent = info.total > 0 ? (info.attended / info.total * 100).toFixed(2) : 0;
+        const isCleared = parseFloat(percent) === 100;
+        const backlogStatus = isCleared ? "Cleared ✅" : "Backlog ❌";
+        const className = isCleared ? "cleared" : "backlog";
+
+        if (!isCleared) {
+          totalBacklogLectures += info.total - info.attended;
+        }
+
+        const statusIcon = info.status === "completed" ? "✅" : "⏳";
+
+        tableHTML += `
+          <tr>
+            <td class="status-icon" onclick="toggleStatus('${semester}', '${subject}')">${statusIcon}</td>
+            <td>${subject}</td>
+            <td>${info.total}</td>
+            <td>${info.attended}</td>
+            <td>${percent}%</td>
+            <td class="${className}">${backlogStatus}</td>
+            <td>
+              <button onclick="updateSubject('${semester}', '${subject}')">✏️</button>
+              <button onclick="deleteSubject('${semester}', '${subject}')">❌</button>
+            </td>
+          </tr>
+        `;
+      }
+
+      tableHTML += `</tbody></table>`;
+      container.innerHTML += tableHTML;
+    }
+
+    document.getElementById("totalBacklogBox").innerText = `Backlog Lectures: ${totalBacklogLectures}`;
+  }
+
+  renderTables();
+</script>
+</body>
+</html>
